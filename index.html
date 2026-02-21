@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Matching Game</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://fonts.googleapis.com/css2?family=Cardo&display=swap" rel="stylesheet">
+
+<style>
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    touch-action: manipulation;
+}
+
+/* Background (unchanged) */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: url("background.jpg") center center no-repeat;
+    background-size: cover;
+    filter: blur(25px);
+    transform: scale(1.1);
+    z-index: -2;
+}
+
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: url("background.jpg") center center no-repeat;
+    background-size: contain;
+    z-index: -1;
+}
+
+#welcomeScreen {
+    text-align: center;
+}
+
+#playBtn {
+    padding: 15px 30px;
+    font-size: 18px;
+    background: blue;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+#gameArea {
+    display: none;
+}
+
+/* Grid unchanged */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: 1.5vh;
+    width: 75vw;
+    height: 70vh;
+    max-width: 750px;
+    max-height: 500px;
+}
+
+/* Card */
+.card {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    box-shadow: 0 0 0 1.2vh #bfbfbf;
+}
+
+/* Card images (numbers + answers) */
+.card img {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+}
+
+.card.matched {
+    background: transparent;
+    cursor: default;
+}
+
+.checkmark {
+    width: 55%;
+    height: 55%;
+    object-fit: contain;
+    position: relative;
+    z-index: 2;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="welcomeScreen">
+    <h1>Welcome to Matching Game</h1>
+    <button id="playBtn">Play and Enter Full Screen</button>
+</div>
+
+<div id="gameArea">
+    <div class="grid" id="grid"></div>
+</div>
+
+<audio id="ding" src="ding sound.mp3"></audio>
+<audio id="flip1" src="wood sound1.mp3"></audio>
+<audio id="flip2" src="wood sound2.mp3"></audio>
+<audio id="buzzer" src="buzzer sound.mp3"></audio>
+
+<script>
+
+const matches = {
+1:"devices.jpg",13:"devices.jpg",
+2:"mountain.jpg",9:"mountain.jpg",
+3:"hooks.jpg",6:"hooks.jpg",
+4:"island.jpg",15:"island.jpg",
+5:"border.jpg",11:"border.jpg",
+7:"restaurant.jpg",16:"restaurant.jpg",
+8:"cruise.jpg",10:"cruise.jpg",
+12:"tools.jpg",14:"tools.jpg"
+};
+
+let firstCard=null;
+let secondCard=null;
+let lockBoard=false;
+let gameVisible=false;
+let holdTimer=null;
+
+let clickCount=0;
+let clickTimer=null;
+let showAnswers=false;
+
+const grid=document.getElementById("grid");
+const gameArea=document.getElementById("gameArea");
+
+const ding=document.getElementById("ding");
+const flip1=document.getElementById("flip1");
+const flip2=document.getElementById("flip2");
+const buzzer=document.getElementById("buzzer");
+
+/* CREATE CARDS WITH NUMBER IMAGES */
+for(let i=1;i<=16;i++){
+    const card=document.createElement("div");
+    card.classList.add("card");
+    card.dataset.number=i;
+
+    const numberImg=document.createElement("img");
+    numberImg.src=`Number ${i}.jpg`;
+    card.appendChild(numberImg);
+
+    card.addEventListener("click",()=>flipCard(card));
+    grid.appendChild(card);
+}
+
+/* PLAY BUTTON */
+document.getElementById("playBtn").onclick=function(){
+    if(document.documentElement.requestFullscreen){
+        document.documentElement.requestFullscreen().catch(()=>{});
+    }
+    document.getElementById("welcomeScreen").style.display="none";
+    gameArea.style.display="block";
+    gameVisible=true;
+};
+
+/* HOLD FEATURE */
+function startHold(e){
+    if(e.target.closest(".card")) return;
+    holdTimer=setTimeout(()=>toggleGameVisibility(),3000);
+}
+
+function cancelHold(){
+    clearTimeout(holdTimer);
+}
+
+function toggleGameVisibility(){
+    gameVisible=!gameVisible;
+    gameArea.style.display=gameVisible?"block":"none";
+}
+
+document.body.addEventListener("mousedown",startHold);
+document.body.addEventListener("mouseup",cancelHold);
+document.body.addEventListener("touchstart",startHold);
+document.body.addEventListener("touchend",cancelHold);
+
+/* TRIPLE TAP */
+document.body.addEventListener("click",function(e){
+
+    if(e.target.closest(".card")) return;
+
+    clickCount++;
+
+    if(clickCount===1){
+        clickTimer=setTimeout(()=>{clickCount=0;},600);
+    }
+
+    if(clickCount===3){
+        clearTimeout(clickTimer);
+        clickCount=0;
+        toggleAnswers();
+    }
+});
+
+function toggleAnswers(){
+    showAnswers=!showAnswers;
+    const allCards=document.querySelectorAll(".card");
+
+    allCards.forEach(card=>{
+        if(card.classList.contains("matched")) return;
+        const number=card.dataset.number;
+        card.innerHTML="";
+
+        if(showAnswers){
+            const img=document.createElement("img");
+            img.src=matches[number];
+            card.appendChild(img);
+        } else {
+            const numberImg=document.createElement("img");
+            numberImg.src=`Number ${number}.jpg`;
+            card.appendChild(numberImg);
+        }
+    });
+}
+
+function flipCard(card){
+
+if(lockBoard||!gameVisible||showAnswers) return;
+if(card.classList.contains("matched")) return;
+if(card===firstCard) return;
+
+flip1.currentTime=0;
+flip1.play();
+
+const number=card.dataset.number;
+
+card.innerHTML="";
+const img=document.createElement("img");
+img.src=matches[number];
+card.appendChild(img);
+
+if(!firstCard){
+firstCard=card;
+return;
+}
+
+secondCard=card;
+lockBoard=true;
+checkMatch();
+}
+
+function checkMatch(){
+
+const num1=firstCard.dataset.number;
+const num2=secondCard.dataset.number;
+
+if(matches[num1]===matches[num2]){
+
+    setTimeout(()=>{
+        firstCard.innerHTML="";
+        secondCard.innerHTML="";
+        firstCard.classList.add("matched");
+        secondCard.classList.add("matched");
+        addCheck(firstCard);
+        addCheck(secondCard);
+        ding.currentTime=0;
+        ding.play();
+        resetBoard();
+    },1000);
+
+}else{
+
+    buzzer.currentTime=0;
+    buzzer.play();
+
+    buzzer.onended=function(){
+
+        flip2.currentTime=0;
+        flip2.play();
+
+        resetCard(firstCard);
+        resetCard(secondCard);
+
+        resetBoard();
+        buzzer.onended=null;
+    };
+}
+
+}
+
+function resetCard(card){
+    card.innerHTML="";
+    const numberImg=document.createElement("img");
+    numberImg.src=`Number ${card.dataset.number}.jpg`;
+    card.appendChild(numberImg);
+}
+
+function addCheck(card){
+const check=document.createElement("img");
+check.src="check.png";
+check.classList.add("checkmark");
+card.appendChild(check);
+}
+
+function resetBoard(){
+firstCard=null;
+secondCard=null;
+lockBoard=false;
+}
+
+</script>
+
+</body>
+</html>
