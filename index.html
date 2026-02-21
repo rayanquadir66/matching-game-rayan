@@ -14,41 +14,22 @@ html, body {
     margin: 0;
     padding: 0;
     height: 100%;
-    overflow: hidden;
 }
 
-/* ===== PERFECT BACKGROUND FIX ===== */
+/* ✅ Perfect full-screen background */
 body {
-    position: relative;
+    background-image: url("background.jpg");
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: cover; /* fills entire screen */
+    background-attachment: fixed;
+
     display: flex;
     justify-content: center;
     align-items: center;
+    overflow: hidden;
     touch-action: manipulation;
 }
-
-/* Blurred background layer (fills screen) */
-body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background: url("background.jpg") center center no-repeat;
-    background-size: cover;
-    filter: blur(25px);
-    transform: scale(1.1);
-    z-index: -2;
-}
-
-/* Main background image (not zoomed, not cropped) */
-body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background: url("background.jpg") center center no-repeat;
-    background-size: contain;
-    z-index: -1;
-}
-
-/* ============================= */
 
 #welcomeScreen {
     text-align: center;
@@ -67,7 +48,7 @@ body::after {
     display: none;
 }
 
-/* Keep your grid exactly the same */
+/* KEEP YOUR GRID EXACTLY THE SAME */
 .grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
